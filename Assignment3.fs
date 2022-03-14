@@ -33,19 +33,19 @@ module Assignment3
 ////////////////////////////////////////////////////////////////////////
 
 // fun1: ’a -> (’a -> ’b) -> ’b
-let fun1 x k = failwith "Not implemented"
+let fun1 x k = k x 
 
 // fun2: (’a -> ’b) -> ((’a -> ’c) -> ’d) -> (’b -> ’c) -> ’d
 let fun2 f t k = failwith "Not implemented"
 
 // fun3: (’a -> ’b -> ’c) -> ’a * ’b -> ’c
-let fun3 f (x, y) = failwith "Not implemented"
+let fun3 f (x, y) = f x y
 
 // fun4: (’a -> ’b -> ’a) -> ’a * ’b -> ’a
-let fun4 f (x, y) = failwith "Not implemented"
+let fun4 f (x, y) = f (f x y) (y)
 
 // fun5: (’a -> ’a -> ’a) -> ’a * ’a -> ’a
-let fun5 f (x, y) = failwith "Not implemented"
+let fun5 f (x, y) = f (f y x) (f y x) 
 
 ////////////////////////////////////////////////////////////////////////
 // Problem 3                                                          //
