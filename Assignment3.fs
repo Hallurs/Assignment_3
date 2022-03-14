@@ -12,13 +12,6 @@ module Assignment3
 // about references in some cases.)
 #nowarn "3370";;
 
-let x = 10 in
-    let f y = (x + 1, x + y) in
-    let x = fst (f 20) in
-    let g y = (x + 2, x + y) in
-    let x = fst (f 30) in
-    snd (g 40)
-
 ////////////////////////////////////////////////////////////////////////
 // Problem 1                                                          //
 ////////////////////////////////////////////////////////////////////////
