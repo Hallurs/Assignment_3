@@ -36,7 +36,7 @@ module Assignment3
 let fun1 x k = k x 
 
 // fun2: (’a -> ’b) -> ((’a -> ’c) -> ’d) -> (’b -> ’c) -> ’d
-let fun2 f t k = failwith "Not implemented"
+let fun2 f t k = failwith "Not Implemented"
 
 // fun3: (’a -> ’b -> ’c) -> ’a * ’b -> ’c
 let fun3 f (x, y) = f x y
@@ -239,6 +239,7 @@ let rec unify (t1 : typ) (t2 : typ) : unit =
     | Int,  Int  -> ()
     | Bool, Bool -> ()
     | Fun (t11, t12), Fun (t21, t22) -> unify t11 t21; unify t12 t22
+    | Prod (t23, t24), Prod (t31, t32) -> unify t23 t31; unify t24 t32
     | TVar tv1, TVar tv2 ->
         let _, tv1level = !tv1
         let _, tv2level = !tv2
@@ -249,7 +250,39 @@ let rec unify (t1 : typ) (t2 : typ) : unit =
     | _, TVar tv2 -> linkVarToType tv2 t1'
     | _, _ -> failwith ("cannot unify " + prettyprintType t1' + " and " + prettyprintType t2')
 
+let a = ref (NoLink "'a", 0)
+let b = ref (NoLink "'b", 0)
+let c = ref (NoLink "'c", 0)
+let unifyTest t1 t2 =
+  a := (NoLink "'a", 0);
+  b := (NoLink "'b", 0);
+  c := (NoLink "'c", 0);
+  unify t1 t2;
+  prettyprintType t1
 
+
+unifyTest (Prod (Int, Int)) (Prod (Int, Int));;
+// val it: string = "int * int"
+unifyTest (Prod (Int, Int)) (Prod (Int, Bool));;
+// System.Exception: cannot unify int and bool
+unifyTest (Prod (Bool, Int)) (Prod (Int, Bool));;
+// System.Exception: cannot unify bool and int
+unifyTest (Prod (Int, Int)) (Prod (Int, Prod (Bool, Int)));;
+// System.Exception: cannot unify int and bool * int
+unifyTest (Prod (Prod (Int, Int), Int)) (Prod (Int, Prod (Int, Int)));;
+// System.Exception: cannot unify int * int and int
+unifyTest (TVar a) (Prod (TVar b, TVar c));;
+// val it: string = "'b * 'c"
+unifyTest (TVar a) (Prod (TVar b, TVar a));;
+// System.Exception: type error: circularity
+unifyTest (Prod (TVar a, Bool)) (Prod (Fun (Int, TVar b), TVar c));;
+// val it: string = "(int -> 'c) * bool"
+unifyTest (Prod (TVar a, Bool)) (Prod (Fun (Int, TVar b), TVar a));;
+// System.Exception: cannot unify bool and int -> 'c
+unifyTest (Fun (Prod (TVar a, TVar b), TVar c)) (Fun (TVar c, Prod (Bool, Int)));;
+// val it: string = "(bool * int) -> bool * int"
+unifyTest (Fun (Prod (TVar a, TVar b), TVar a)) (Fun (TVar c, Prod (Bool, Int)));;
+// val it: string = "((bool * int) * 'b) -> bool * int"
 
 ////////////////////////////////////////////////////////////////////////
 // Problem 5                                                          //
@@ -313,15 +346,52 @@ let rec infer (e : expr) (lvl : int) (env : typescheme envir) : typ =
         let t1 = infer e1 lvl env
         let t2 = infer e2 lvl env
         unify Bool (infer e lvl env); unify t1 t2; t1
-
-    | Pair (e1, e2) -> failwith "Not implemented"
-    | Fst e -> failwith "Not implemented"
-    | Snd e -> failwith "Not implemented"
+    | Pair (e1, e2) -> 
+        let t1 = infer e1 lvl env
+        let t2 = infer e2 lvl env
+        Prod(t1, t2)
+    | Fst e -> 
+        let t1 = infer e lvl env
+        let tr = TVar (newTypeVar lvl)
+        let tx = TVar (newTypeVar lvl)
+        let tv = Prod(tr, tx)
+        unify t1 tv;
+        tr
+    | Snd e -> 
+        let t1 = infer e lvl env
+        let tr = TVar (newTypeVar lvl)
+        let tx = TVar (newTypeVar lvl)
+        let tv = Prod(tr, tx)
+        unify t1 tv;
+        tx
 
 let inferTop e =
     tyvarno := 0; prettyprintType (infer e 0 [])
 
-
+inferTop (Pair (Num 0, True));;
+// val it: string = "int * bool"
+inferTop (Pair (Num 0, Pair (True, Num 1)));;
+// val it: string = "int * (bool * int)"
+inferTop (Fst (Pair (Num 0, Pair (True, Num 1))));;
+// val it: string = "int"
+inferTop (Snd (Pair (Num 0, Pair (True, Num 1))));;
+// val it: string = "bool * int"
+inferTop (Fst (Snd (Pair (Num 0, Pair (True, Num 1)))));;
+// val it: string = "bool"
+inferTop (Snd (Snd (Pair (Num 0, Pair (True, Num 1)))));;
+// val it: string = "int"
+inferTop (Fst (Num 0));;
+// System.Exception: cannot unify 'b * 'c and int
+inferTop (Fst (Fst (Pair (Num 0, Pair (Num 1, Num 2)))));;
+// System.Exception: cannot unify 'd * 'e and int
+inferTop (LetFun ("f", "p", Pair (Snd (Var "p"), Fst (Var "p")), Var "f"));;
+// val it: string = "('f * 'g) -> 'g * 'f"
+inferTop (LetFun ("f", "p", Pair (Snd (Var "p"), Fst (Fst (Var "p"))), Var "f"));;
+// val it: string = "(('h * 'i) * 'g) -> 'g * 'h"
+inferTop (LetFun ("f", "p", Pair (Snd (Var "p"), Fst (Var "p")), Call (Var "f", Pair (Num 0, Num 1))));;
+// val it: string = "int * int"
+inferTop (LetFun ("f", "p", Pair (Snd (Var "p"), Fst (Var "p")), Call (Var "f", Num 0)));;
+// System.Exception: cannot unify 'f * 'g and int
 
 ////////////////////////////////////////////////////////////////////////
 // Problem 6                                                          //
@@ -382,11 +452,41 @@ let rec eval (e : expr) (env : value envir) : value =
          match eval e env with
          | B b -> if b then eval e1 env else eval e2 env
          | _ -> failwith "guard of if-then-else not a boolean"
+    | Pair (e1, e2) -> 
+        P (e1, e2, env)
+    | Fst e -> 
+        let clo = eval e env
+        match clo with
+        | P (e1, e2, env) ->
+            eval e1 env
+        | _ -> failwith "nothing"
+    | Snd e -> 
+        let clo = eval e env
+        match clo with
+        | P (e1, e2, env) ->
+            eval e2 env
+        | _ -> failwith "nothing"
 
-    | Pair (e1, e2) -> failwith "Not implemented"
-    | Fst e -> failwith "Not implemented"
-    | Snd e -> failwith "Not implemented"
-
+eval (Pair (Divide (Num 1, Num 0), Divide (Num 1, Num 0))) [];;
+// val it: value = P (Divide (Num 1, Num 0), Divide (Num 1, Num 0), [])
+eval (Snd (Pair (Divide (Num 1, Num 0), Num 2))) [];;
+// val it: value = I 2
+eval (Fst (Pair (Divide (Num 1, Num 0), Num 2))) [];;
+// System.Exception: division by 0
+eval (Fst (Var "p")) ["p", P (Divide (Num 1, Num 0), Num 2, [])];;
+// System.Exception: division by 0
+eval (Snd (Var "p")) ["p", P (Divide (Num 1, Num 0), Num 2, [])];;
+// val it: value = I 2
+eval (Let ("x", Num 1, Let ("p", Pair (Var "x", Num 2), Let ("x", Num 3, Fst (Var "p"))))) [];;
+// val it: value = I 1
+eval (Fst (Pair (Var "x", Var "y"))) ["x", I 1; "y", I 2];;
+// val it: value = I 1
+eval (Fst (Pair (Var "x", Var "y"))) ["x", I 1];;
+// val it: value = I 1
+eval (LetFun ("f", "p", Pair (Snd (Var "p"), Fst (Var "p")), Fst (Call (Var "f", Pair (Num 1, Divide (Num 2, Num 0)))))) [];;
+// System.Exception: division by 0
+eval (LetFun ("f", "p", Pair (Snd (Var "p"), Fst (Var "p")), Snd (Call (Var "f", Pair (Num 1, Divide (Num 2, Num 0)))))) [];;
+// val it: value = I 1
 
 
 ////////////////////////////////////////////////////////////////////////
