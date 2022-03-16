@@ -1,7 +1,9 @@
 // T-501-FMAL, Spring 2022, Assignment 3
 
 (*
-STUDENT NAMES HERE: ...
+STUDENT NAMES HERE:
+Hallur Hermansson Aspar Hallura20
+Úlfur Ingólfsson Ulfur20
 
 
 *)
@@ -36,13 +38,13 @@ module Assignment3
 let fun1 x k = k x 
 
 // fun2: (’a -> ’b) -> ((’a -> ’c) -> ’d) -> (’b -> ’c) -> ’d
-let fun2 f t k = failwith "Not Implemented"
+let fun2 f t k = t (k << f)
 
 // fun3: (’a -> ’b -> ’c) -> ’a * ’b -> ’c
 let fun3 f (x, y) = f x y
 
 // fun4: (’a -> ’b -> ’a) -> ’a * ’b -> ’a
-let fun4 f (x, y) = f (f x y) (y)
+let fun4 f (x, y) = f (f x y) y
 
 // fun5: (’a -> ’a -> ’a) -> ’a * ’a -> ’a
 let fun5 f (x, y) = f (f y x) (f y x) 
@@ -53,17 +55,20 @@ let fun5 f (x, y) = f (f y x) (f y x)
 
 (* ANSWER 3 HERE:
      (i)
-
+            cannot be unified, due to 'a -> bool, and bool -> (int * int), cannot unify bool and int * int
     (ii)
-
+            can be unified, 'a -> bool, and 'b -> (bool * int) 
+            Ending up with || "bool * (bool * int)" ||
    (iii)
-
+            can be unified, 'a -> a, and 'b -> ('a * int)
+            Ending up with || 'a * ('a * int) ||
     (iv)
-
+            can be unified, 'a -> ('b -> 'b), and ('b -> 'b) -> ('b -> 'b)
+            Ending up with || ('b -> 'b) * ('b -> 'b) ||
      (v)
+            can be unified, 'a -> ('b -> 'c) and ('b -> 'c) -> (int -> 'b)
+            Ending up with || (int -> int) * (int -> int)
 *)
-
-
 
 ////////////////////////////////////////////////////////////////////////
 // Some type declarations, do not change these                        //
@@ -260,7 +265,6 @@ let unifyTest t1 t2 =
   unify t1 t2;
   prettyprintType t1
 
-
 unifyTest (Prod (Int, Int)) (Prod (Int, Int));;
 // val it: string = "int * int"
 unifyTest (Prod (Int, Int)) (Prod (Int, Bool));;
@@ -276,7 +280,7 @@ unifyTest (TVar a) (Prod (TVar b, TVar c));;
 unifyTest (TVar a) (Prod (TVar b, TVar a));;
 // System.Exception: type error: circularity
 unifyTest (Prod (TVar a, Bool)) (Prod (Fun (Int, TVar b), TVar c));;
-// val it: string = "(int -> 'c) * bool"
+// val it: string = "(int -> 'b) * bool"
 unifyTest (Prod (TVar a, Bool)) (Prod (Fun (Int, TVar b), TVar a));;
 // System.Exception: cannot unify bool and int -> 'c
 unifyTest (Fun (Prod (TVar a, TVar b), TVar c)) (Fun (TVar c, Prod (Bool, Int)));;
@@ -455,17 +459,13 @@ let rec eval (e : expr) (env : value envir) : value =
     | Pair (e1, e2) -> 
         P (e1, e2, env)
     | Fst e -> 
-        let clo = eval e env
-        match clo with
-        | P (e1, e2, env) ->
-            eval e1 env
-        | _ -> failwith "nothing"
+         match eval e env with
+         | P(x, y, env) -> eval x env
+         | _ -> failwith "Not a pair"   
     | Snd e -> 
-        let clo = eval e env
-        match clo with
-        | P (e1, e2, env) ->
-            eval e2 env
-        | _ -> failwith "nothing"
+        match eval e env with
+        | P (x, y, env) -> eval y env
+        | _ -> failwith "Not a pair"
 
 eval (Pair (Divide (Num 1, Num 0), Divide (Num 1, Num 0))) [];;
 // val it: value = P (Divide (Num 1, Num 0), Divide (Num 1, Num 0), [])
